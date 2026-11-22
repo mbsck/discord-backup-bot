@@ -1,0 +1,24 @@
+[project]
+dependencies = ["discord==2.3.1", "python-dotenv==1.0.0"]
+name = "discord-backup-bot"
+requires-python = ">= 3.11"
+version = "0.1.0"
+
+[project.scripts]
+backup-bot="discord_backup_bot.bot:main"
+
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/discord_backup_bot"]
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[tool.pixi.pypi-dependencies]
+discord_backup_bot = { path = ".", editable = true }
+
+[tool.pixi.tasks]

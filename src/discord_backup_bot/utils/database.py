@@ -1,32 +1,31 @@
 import json
-import os
 import sqlite3
+from pathlib import Path
 
 from .backup import CHANNEL_ATTRIBUTE_NAMES, ROLE_ATTRIBUTE_NAMES, Backup
-from .path import get_path
-from typing import Optional
 
 
 class Database:
-    def __init__(self) -> None:
+    """An SQLite3 database."""
+
+    def __init__(self, save_dir: Path) -> None:
         setup = False
 
-        if not os.path.exists(get_path("database.db")):
-            with open(get_path("database.db"), "w"):
+        self.path = save_dir / "database.db"
+        if not self.path.exists():
+            with open(self.path, "w"):
                 setup = True
-                pass
 
         self._conn: sqlite3.Connection = sqlite3.connect(
-            database=get_path("database.db"),
-            check_same_thread=False
+            database=self.path, check_same_thread=False
         )
 
         if setup:
             self._setup()
-    
+
     def _get_cursor(self) -> sqlite3.Cursor:
         return self._conn.cursor()
-    
+
     def _setup(self) -> None:
         cursor = self._get_cursor()
 
@@ -105,11 +104,12 @@ class Database:
         self._conn.commit()
 
         cursor.close()
-    
+
     def insert_backup(self, backup: Backup) -> None:
         cursor = self._get_cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
                 INSERT INTO backups
                 VALUES (?, ?, ?, ?, ?);
             """,
@@ -118,48 +118,49 @@ class Database:
                 json.dumps([c.get("id") for c in backup.channels]),
                 json.dumps([r.get("id") for r in backup.roles]),
                 backup.rules_channel,
-                backup.public_updates_channel
-            )
+                backup.public_updates_channel,
+            ),
         )
 
         for channel in backup.channels:
-            channel.update({
-                "overwrites": json.dumps(channel.get("overwrites"))
-            })
+            channel.update({"overwrites": json.dumps(channel.get("overwrites"))})
 
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
                     INSERT INTO guild_channels
-                    (backup_id, {', '.join(channel.keys())})
-                    VALUES ({', '.join(['?' for _ in range(len(channel.keys()) + 1)])});
+                    (backup_id, {", ".join(channel.keys())})
+                    VALUES ({", ".join(["?" for _ in range(len(channel.keys()) + 1)])});
                 """,
-                [backup.id, *list(channel.values())]
+                [backup.id, *list(channel.values())],
             )
 
         for role in backup.roles:
-            role.update({
-                "colour": json.dumps(role.get("colour"))
-            })
+            role.update({"colour": json.dumps(role.get("colour"))})
 
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
                     INSERT INTO guild_roles
-                    (backup_id, {', '.join(role.keys())})
-                    VALUES ({', '.join(['?' for _ in range(len(role.keys()) + 1)])});
+                    (backup_id, {", ".join(role.keys())})
+                    VALUES ({", ".join(["?" for _ in range(len(role.keys()) + 1)])});
                 """,
-                [backup.id, *list(role.values())]
+                [backup.id, *list(role.values())],
             )
 
         self._conn.commit()
 
         cursor.close()
-    
-    def get_backup(self, backup_id: str) -> Optional[Backup]:
+
+    def get_backup(self, backup_id: str) -> Backup | None:
         cursor = self._get_cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
                 SELECT * FROM backups
                 WHERE id = ?;
             """,
-            [backup_id,]
+            [
+                backup_id,
+            ],
         )
 
         if result := cursor.fetchone():
@@ -170,12 +171,13 @@ class Database:
             role_ids = json.loads(result[2])
 
             for c_id in channel_ids:
-                cursor.execute(f"""
-                        SELECT {', '.join(CHANNEL_ATTRIBUTE_NAMES)} 
+                cursor.execute(
+                    f"""
+                        SELECT {", ".join(CHANNEL_ATTRIBUTE_NAMES)} 
                         FROM guild_channels
                         WHERE id = ? AND backup_id = ?
                     """,
-                    [c_id, backup_id]
+                    [c_id, backup_id],
                 )
 
                 if channel_data := cursor.fetchone():
@@ -188,172 +190,208 @@ class Database:
                         "position",
                         "type",
                         "overwrites",
-                        "permissions_synced"
+                        "permissions_synced",
                     ]
 
                     if channel_data[4] in [0, 5, 10, 11, 12, 15]:
-                        attributes.extend([
-                            "category_id",
-                            "default_auto_archive_duration",
-                            "default_thread_slowmode_delay",
-                            "slowmode_delay"
-                        ])
-                    
+                        attributes.extend(
+                            [
+                                "category_id",
+                                "default_auto_archive_duration",
+                                "default_thread_slowmode_delay",
+                                "slowmode_delay",
+                            ]
+                        )
+
                     elif channel_data[4] in [2, 13]:
-                        attributes.extend([
-                            "category_id",
-                            "bitrate",
-                            "user_limit",
-                            "rtc_region",
-                            "video_quality_mode",
-                            "slowmode_delay"
-                        ])
+                        attributes.extend(
+                            [
+                                "category_id",
+                                "bitrate",
+                                "user_limit",
+                                "rtc_region",
+                                "video_quality_mode",
+                                "slowmode_delay",
+                            ]
+                        )
 
                     for i, value in enumerate(attributes):
-                        if value in ["overwrites",]:
-                            channel.update({value: json.loads(channel_data[CHANNEL_ATTRIBUTE_NAMES.index(value)])})
-                        
+                        if value in [
+                            "overwrites",
+                        ]:
+                            channel.update(
+                                {
+                                    value: json.loads(
+                                        channel_data[
+                                            CHANNEL_ATTRIBUTE_NAMES.index(value)
+                                        ]
+                                    )
+                                }
+                            )
+
                         else:
-                            channel.update({value: channel_data[CHANNEL_ATTRIBUTE_NAMES.index(value)]})
-                    
+                            channel.update(
+                                {
+                                    value: channel_data[
+                                        CHANNEL_ATTRIBUTE_NAMES.index(value)
+                                    ]
+                                }
+                            )
+
                     channels.append(channel)
-            
+
             for r_id in role_ids:
-                cursor.execute(f"""
-                        SELECT {', '.join(ROLE_ATTRIBUTE_NAMES)} 
+                cursor.execute(
+                    f"""
+                        SELECT {", ".join(ROLE_ATTRIBUTE_NAMES)} 
                         FROM guild_roles
                         WHERE id = ? AND backup_id = ?
                     """,
-                    [r_id, backup_id]
+                    [r_id, backup_id],
                 )
 
                 if role_data := cursor.fetchone():
                     role = {}
 
                     for i, value in enumerate(ROLE_ATTRIBUTE_NAMES):
-                        if value in ["colour", ]:
+                        if value in [
+                            "colour",
+                        ]:
                             role.update({value: json.loads(role_data[i])})
-                        
+
                         else:
                             role.update({value: role_data[i]})
-                    
+
                     roles.append(role)
-            
+
             cursor.close()
-            
+
             return Backup(
                 backup_id,
                 channels=channels,
                 roles=roles,
                 rules_channel=result[3],
-                public_updates_channel=result[4]
+                public_updates_channel=result[4],
             )
-    
+
     def delete_backup(self, backup_id: str) -> None:
         cursor = self._get_cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
                 DELETE FROM backups
                 WHERE id = ?
             """,
-            [backup_id,]
+            [
+                backup_id,
+            ],
         )
 
         cursor.close()
-    
+
     def get_reference_id(self, backup_id: str, guild_id: int, reference_id: int) -> int:
         cursor = self._get_cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
                 SELECT new_id FROM reference_ids
                 where backup_id = ? AND old_id = ? AND guild_id = ?
             """,
-            [backup_id, reference_id, guild_id]
+            [backup_id, reference_id, guild_id],
         )
 
         ref = reference_id
 
         if result := cursor.fetchone():
             ref = result[0]
-        
+
         cursor.close()
 
         return ref
-    
-    def set_reference_id(self, backup_id: str, guild_id: int, old_id: int, new_id: int) -> None:
+
+    def set_reference_id(
+        self, backup_id: str, guild_id: int, old_id: int, new_id: int
+    ) -> None:
         if old_id == new_id:
             return
 
         cursor = self._get_cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
                 SELECT * FROM reference_ids
                 WHERE backup_id = ? AND old_id = ? AND guild_id = ?
             """,
-            [backup_id, old_id, guild_id]
+            [backup_id, old_id, guild_id],
         )
 
         if cursor.fetchone():
-            cursor.execute("""
+            cursor.execute(
+                """
                     UPDATE reference_ids
                     SET old_id = ?, new_id = ?
                     WHERE backup_id = ? AND old_id = ? AND guild_id = ?
                 """,
-                [old_id, new_id, backup_id, old_id, guild_id]
+                [old_id, new_id, backup_id, old_id, guild_id],
             )
-        
+
         else:
-            cursor.execute("""
+            cursor.execute(
+                """
                     INSERT INTO reference_ids
                     VALUES (?, ?, ?, ?)
                 """,
-                [old_id, new_id, backup_id, guild_id]
+                [old_id, new_id, backup_id, guild_id],
             )
-        
+
         self._conn.commit()
 
         cursor.close()
-    
+
     def del_reference_id(self, backup_id: str, guild_id: int, old_id: int) -> None:
         cursor = self._get_cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
                 SELECT * FROM reference_ids
                 WHERE backup_id = ? AND old_id = ? AND guild_id = ?
             """,
-            [backup_id, old_id, guild_id]
+            [backup_id, old_id, guild_id],
         )
 
         if cursor.fetchone():
-            cursor.execute("""
+            cursor.execute(
+                """
                     DELETE FROM reference_ids
                     WHERE backup_id = ? AND old_id = ? AND guild_id = ?
                 """,
-                [backup_id, old_id, guild_id]
+                [backup_id, old_id, guild_id],
             )
-        
+
         self._conn.commit()
 
         cursor.close()
-    
+
     def del_references_of_backup(self, backup_id: str) -> None:
         cursor = self._get_cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
                 SELECT * FROM reference_ids
                 WHERE backup_id = ?
             """,
-            [backup_id]
+            [backup_id],
         )
 
         if cursor.fetchall():
-            cursor.execute("""
+            cursor.execute(
+                """
                     DELETE FROM reference_ids
                     WHERE backup_id = ?
                 """,
-                [backup_id]
+                [backup_id],
             )
-        
+
         self._conn.commit()
 
         cursor.close()

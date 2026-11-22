@@ -26,20 +26,24 @@ The bot uses SQLite as its db which makes the install as easy as possible.
 |         :x:        | Message backups                |
 
 ## Setup
-1. Copy `.env.template` to `.env` and insert your discord bot token
-1. Install the dependencies
+1. Clone the repository
     ```
-    pip install -r requirements.txt
+    git clone https://github.com/icudev/discord-backup-bot.git
     ```
-1. Run the bot
+2. Install [`pixi`](https://pixi.prefix.dev/latest/installation/)
+3. Install Python and its dependencies into a virtual environment
     ```
-    cd src
-    python bot.py
+    pixi install
     ```
-    or
+4. Copy `.env.template` to `.env` and insert your discord bot token or
+export it in the shell you are`.env` running the bot from with export `DISCORD_BOT_TOKEN=<token>`
+5. Run the bot
     ```
-    python src/bot.py
+    pixi run backup-bot
     ```
+
+    If no database directory is passed with `-o <dir>/--output <dir>`, one
+    will be created within the top level of the repository.
 
 ## Usage
 |   Command name   |         Command description         |

@@ -1,11 +1,11 @@
-import discord
-import os
-
-from .path import get_path
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Union
+from pathlib import Path
+from typing import Any
 
+import discord
 
+PKG_DIR = Path(__file__).parent.parent.parent
 CHANNEL_ATTRIBUTE_NAMES = [
     "name",
     "id",
@@ -37,51 +37,57 @@ ROLE_ATTRIBUTE_NAMES = [
 
 
 def generate_unique_id() -> str:
-    """Generates a unique id based off of the current timestamp
+    """Generates a unique id based off of the current timestamp.
 
     Returns
     -------
     str
-        The unique id
+        The unique id.
     """
 
-    return hex(int(datetime.now().timestamp() * 1000 - datetime.fromisoformat("2020-01-01").timestamp() * 1000))[2:].upper()
+    return hex(
+        int(
+            datetime.now().timestamp() * 1000
+            - datetime.fromisoformat("2020-01-01").timestamp() * 1000
+        )
+    )[2:].upper()
 
 
 class Backup:
-    """
-    A class used to represent a backup
+    """A class containing a backup.
 
     Attributes
     ----------
     _id: str
-        The unique backup id
-    channels: Optional[List[Dict]]
-        An optional list of all guild channels in a backup
-    rules_channel: Optional[int]
-        Optional rules channel id of community guilds
-    public_updates_channel: Optional[int]
-        Optional updates channel id of community guilds
-    roles: Optional[List[Dict]]
-        An optional list of all guild roles in a backup
+        The unique backup id.
+    channels: list of dict, optional
+        An optional list of all guild channels in a backup.
+    rules_channel: int, optional
+        Optional rules channel id of community servers.
+    public_updates_channel: int, optional
+        Optional updates channel id of community servers.
+    roles: list of dict, optional
+        An optional list of all guild roles in a backup.
     """
 
     def __init__(
         self,
-        _id: Optional[str] = None,
-        channels: Optional[List[Dict]] = None,
-        rules_channel: Optional[int] = None,
-        public_updates_channel: Optional[int] = None,
-        roles: Optional[List[Dict]] = None,
+        _id: str | None = None,
+        channels: list[dict] | None = None,
+        rules_channel: int | None = None,
+        public_updates_channel: int | None = None,
+        roles: list[dict] | None = None,
     ) -> None:
+
         self._id: str = _id or generate_unique_id()
-        self.channels: Optional[List[Dict]] = channels
-        self.rules_channel: Optional[int] = rules_channel
-        self.public_updates_channel: Optional[int] = public_updates_channel
-        self.roles: Optional[List[Dict]] = roles
+        self.channels: list[dict] | None = channels
+        self.rules_channel: int | None = rules_channel
+        self.public_updates_channel: int | None = public_updates_channel
+        self.roles: list[dict] | None = roles
 
     @property
     def id(self) -> str:
+        """Returns the backup id."""
         return self._id
 
     @classmethod
@@ -90,13 +96,13 @@ class Backup:
 
         Parameters
         ----------
-        guild: discord.Guild
-            The guild that you want to create a backup of
+        guild : discord.Guild
+            The discord server to backup.
 
         Returns
         -------
         Backup
-            The backup
+            The backup.
         """
 
         roles = [
@@ -119,9 +125,8 @@ class Backup:
             roles=roles,
         )
 
-    def to_json(self) -> dict:
+    def to_json(self) -> dict[str, Any]:
         """Converts self into a dict object"""
-
         return self.__dict__
 
 
@@ -146,7 +151,8 @@ class BackupChannel:
         self.rtc_region = kwargs.get("rtc_region")
         self.video_quality_mode = kwargs.get("video_quality_mode")
 
-    def to_json(self) -> Dict:
+    def to_json(self) -> dict[str, Any]:
+        """Converts the class attributes into JSON format."""
         data = {
             "name": self.name,
             "id": self.id,
@@ -183,22 +189,21 @@ class BackupChannel:
 
 
 def convert_permissionoverwrite_to_list(
-    overwrites: Dict[
-        Union[discord.Role,discord.Member, discord.Object],
-        discord.PermissionOverwrite
+    overwrites: dict[
+        discord.Role | discord.Member | discord.Object, discord.PermissionOverwrite
     ],
-) -> List[Dict]:
-    """Converts a discord.PermissionOverwrite object to a list
+) -> list[dict]:
+    """Converts a PermissionOverwrite object to a list.
 
     Parameters
     ----------
-    overwrites: discord.PermissionOverwrite
-        The overwrites which should be converted
+    overwrites: dict of Role, Member, or Object keys and PermissionOverwrite values
+        The overwrites which should be converted.
 
     Returns
     -------
     list
-        A list containing dicts for each overwrite
+        A list containing dicts for each overwrite.
     """
 
     return [
@@ -211,25 +216,23 @@ def convert_permissionoverwrite_to_list(
 
 
 def extract_attributes_from_class(
-    attributes: List[str],
-    _class: Any,
-    convert: Optional[Dict[str, Callable]] = None
-) -> Dict:
-    """Extracts the values of the attributes given in `attributes` from the `_class` object
+    attributes: list[str], _class: Any, convert: dict[str, Callable] | None = None
+) -> dict[str, Any]:
+    """Extracts the values of the attributes given in `attributes` from the `_class` object.
 
     Parameters
     ----------
-    attributes: List[str]
-        The list of attribute names you want to extract
+    attributes: list of str
+        The list of attribute names you want to extract.
     _class: Any
-        The class instance of which the attributes should be extracted
-    convert: Dict[str, Callable]
-        Allows to convert the attribute value to something else e.g. {"attribute1": lambda value: value + 1}
+        The class instance of which the attributes should be extracted.
+    convert: dict of str keys and callable values
+        Allows to convert the attribute value to something else e.g. {"attribute1": lambda value: value + 1}.
 
     Returns
     -------
-    dict
-        The attributes with their values
+    dict of str keys and any values
+        The attributes with their values.
     """
 
     result = {}
@@ -254,7 +257,8 @@ def extract_attributes_from_class(
     return result
 
 
-def convert_guild_channel_to_json(guild_channel: discord.abc.GuildChannel) -> Dict:
+def convert_guild_channel_to_json(guild_channel: discord.abc.GuildChannel) -> dict:
+    """Converts a server channel to JSON."""
     return extract_attributes_from_class(
         attributes=CHANNEL_ATTRIBUTE_NAMES,
         _class=guild_channel,
@@ -268,7 +272,8 @@ def convert_guild_channel_to_json(guild_channel: discord.abc.GuildChannel) -> Di
     )
 
 
-async def convert_guild_role_to_json(guild_role: discord.Role) -> Dict:
+async def convert_guild_role_to_json(guild_role: discord.Role) -> dict:
+    """Converts a server role to JSON."""
     raw_guild_role = extract_attributes_from_class(
         attributes=ROLE_ATTRIBUTE_NAMES,
         _class=guild_role,
@@ -278,12 +283,11 @@ async def convert_guild_role_to_json(guild_role: discord.Role) -> Dict:
         },
     )
 
-    # Poor implementation of image saving, but it works (somehow)
+    # FIXME: Poor implementation of image saving, but it works (somehow).
     if (dis_icon := raw_guild_role.get("display_icon")) is not None:
-        if not os.path.exists(get_path("assets")):
-            os.mkdir(get_path("assets"))
-
-        with open(get_path(f"assets/{dis_icon.key}.png"), "wb") as role_image_file:
+        dis_icon_file = PKG_DIR / "assets" / f"{dis_icon.key}.png"
+        dis_icon_file.parent.mkdir(exist_ok=True, parents=True)
+        with open(dis_icon_file, "wb") as role_image_file:
             role_image_file.write(await dis_icon.read())
 
         raw_guild_role.update({"display_icon": dis_icon.key})

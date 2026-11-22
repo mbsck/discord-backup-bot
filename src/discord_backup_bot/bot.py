@@ -1,10 +1,24 @@
-import discord
 import logging
 import os
+from argparse import ArgumentParser
+from pathlib import Path
 
+import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-from utils import Database
+
+from .utils import Database
+
+PARSER = ArgumentParser()
+PARSER.add_argument(
+    "-o",
+    "--output",
+    dest="backup_dir",
+    help="The directory where the backup gets saved to.",
+    default=Path(__file__).parent.parent,
+)
+ARGS = PARSER.parse_args()
+
 
 load_dotenv()
 
@@ -23,7 +37,7 @@ EXTENSIONS = [
     "cogs.backuphandler",
 ]
 
-# Turn this on if the bot takes a long time to start
+# NOTE: Turn this on if the bot takes a long time to start
 # Do *NOT* turn this on on the first run
 DISABLE_COMMAND_SYNC = False
 
@@ -31,8 +45,7 @@ DISABLE_COMMAND_SYNC = False
 class BackupBot(commands.Bot):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-
-        self.db = Database()
+        self.db = Database(ARGS.backup_dir)
 
     async def load_extensions(self) -> None:
         """Loads all extensions listed in `EXTENSIONS`"""
@@ -67,9 +80,12 @@ class BackupBot(commands.Bot):
         logging.info(f"Logged in as {self.user}")
 
 
-if __name__ == "__main__":
+def main():
     bot = BackupBot(
         command_prefix=[], help_command=None, intents=discord.Intents.default()
     )
-
     bot.run(token=BOT_TOKEN, log_handler=None)
+
+
+if __name__ == "__main__":
+    main()

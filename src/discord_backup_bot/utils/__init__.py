@@ -1,4 +1,5 @@
 from .backup import (
+    PKG_DIR,
     Backup,
     BackupChannel,
     convert_guild_channel_to_json,
@@ -7,4 +8,3 @@ from .backup import (
     extract_attributes_from_class,
 )
 from .database import Database
-from .path import get_path

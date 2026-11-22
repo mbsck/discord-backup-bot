@@ -150,3 +150,6 @@ cython_debug/
 # DBB specific
 *.json
 *.db
+# pixi environments
+.pixi/*
+!.pixi/config.toml
